@@ -1,4 +1,4 @@
-import os, inspect, hashlib, jwt
+import os, inspect, hashlib, jwt, asyncio
 from functools import wraps
 from datetime import datetime, timedelta
 from typing import Callable, Any, Dict, Optional
@@ -8,6 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from nicegui import ui  # , APIRouter
 from .logging import setup_logger
 from .theme import ThemeBuild
+from .reactive import component
 
 SECRET_KEY = "super-secret-key-change-it-to-something-unique"
 ALGORITHM = "HS256"
@@ -210,9 +211,19 @@ class RouteDecorator:
             async def wrapped_func(*args, **kwargsI):
                 if theme:
                     with theme().build():
-                        return await func(*args, **kwargsI)
+                        component_func = component(func)
+                        result = component_func(*args, **kwargsI)
+                        if asyncio.iscoroutine(result):
+                            return await result
+                        else:
+                            return result
                 else:
-                    return await func(*args, **kwargsI)
+                    component_func = component(func)
+                    result = component_func(*args, **kwargsI)
+                    if asyncio.iscoroutine(result):
+                        return await result
+                    else:
+                        return result
 
             # Register the page with NiceGUI
             ui.page(full_path, **kwargs)(wrapped_func)
