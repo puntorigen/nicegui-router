@@ -1,23 +1,24 @@
-import importlib.util, os, hashlib, warnings, logging
+import importlib.util, os, hashlib, jwt
+import warnings, logging
+from typing import TypedDict, Optional, Union, Literal, Sequence, List, Dict, Any
+from fastapi import FastAPI, APIRouter, Request, Response, WebSocket
+from fastapi.routing import APIRoute, BaseRoute, APIWebSocketRoute
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from pathlib import Path
 from nicegui import ui
 from nicegui.language import Language
-from typing import TypedDict, Optional, Union, Literal, Sequence, List, Dict, Any
-from fastapi import FastAPI, APIRouter, Request, Response
-from fastapi.routing import APIRoute, BaseRoute, APIWebSocketRoute
-from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-from .route_decorator import _route_decorator
+from .route_decorator import _route_decorator, SECRET_KEY, ALGORITHM
 from .logging import setup_logger
-from fastapi.openapi.utils import get_openapi
+from contextlib import asynccontextmanager
 
-#from starlette.middleware.base import BaseHTTPMiddleware
-#from fastapi.openapi.models import (
-#    OAuthFlows as OAuthFlowsModel,
-#    SecurityScheme as SecuritySchemeModel,
-#)
-#from fastapi.openapi.models import OAuthFlowPassword as OAuthFlowPasswordModel
-#from fastapi.security import OAuth2PasswordBearer
+from fastapi.openapi.models import (
+    OAuthFlows as OAuthFlowsModel,
+    SecurityScheme as SecuritySchemeModel,
+)
+from fastapi.openapi.models import OAuthFlowPassword as OAuthFlowPasswordModel
+from fastapi.security import OAuth2PasswordBearer
+from fastapi.openapi.utils import get_openapi
 
 warnings.filterwarnings("ignore")
 
@@ -176,7 +177,29 @@ class DynamicRouterLoader:
         for root, dirs, files in os.walk(self.routes_dir):
             for file in files:
                 if file.endswith(".py") and file != "__init__.py":
+                    #print(f"Loading routes from: {os.path.join(root, file)}")
                     self._import_and_register_router(root, file)
+
+        # Register WebSocket routes
+        for module_name, ws_routes in _route_decorator.websocket_routes.items():
+            for full_path, func, auth_required, kwargs in ws_routes:
+                if auth_required:
+                    # Wrap with authentication if required
+                    async def wrapper(websocket: WebSocket, **path_params):
+                        token = websocket.cookies.get('access_token')
+                        if token is None:
+                            await websocket.close(code=1008)  # Policy violation
+                            return
+                        try:
+                            jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+                        except jwt.PyJWTError:
+                            await websocket.close(code=1008)
+                            return
+                        return await func(websocket=websocket, **path_params)
+                    self.app.add_api_websocket_route(full_path, wrapper, **kwargs)
+                else:
+                    self.app.add_api_websocket_route(full_path, func, **kwargs)
+                logger.info(f"Registered WebSocket route: {full_path}")
 
         # Print all registered routes after loading
         logger.info("\n*** Dynamic API Routes ***")
@@ -220,7 +243,6 @@ class DynamicRouterLoader:
             if router and isinstance(router, APIRouter):
                 # Compute the prefix from the directory structure and file name
                 prefix = self._compute_prefix(root, file)
-                # print(f"Computed prefix: {prefix}")
 
                 # Register the router with the FastAPI app
                 self.app.include_router(

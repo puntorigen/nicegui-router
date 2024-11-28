@@ -1,16 +1,17 @@
 import os, inspect, hashlib, jwt, asyncio
 from functools import wraps
 from datetime import datetime, timedelta
-from typing import Callable, Any, Dict, Optional
+from nicegui import ui  # , APIRouter
+from typing import Callable, Any, Dict, Optional, Annotated
 from pydantic import BaseModel, create_model, Field
-from fastapi import WebSocket, Request, Body, Depends, HTTPException, APIRouter
+from fastapi import WebSocket, Request, Body, Depends, HTTPException, Header, Security, APIRouter
 from fastapi.security import OAuth2PasswordBearer
 from nicegui import ui  # , APIRouter
 from .logging import setup_logger
 from .theme import ThemeBuild
 from .reactive import component
 
-SECRET_KEY = "super-secret-key-change-it-to-something-unique"
+SECRET_KEY = "super-secret-key-for-jwt-make-it-unique-asap"
 ALGORITHM = "HS256"
 
 logger = setup_logger("route_decorator")
@@ -19,6 +20,7 @@ logger = setup_logger("route_decorator")
 class RouteDecorator:
     def __init__(self):
         self.routers = {}
+        self.websocket_routes = {}
         self.routes_dir = None
         self.auth_path = "/login"  # Default auth path
 
@@ -35,6 +37,11 @@ class RouteDecorator:
             self.routers[module_name] = APIRouter()
             # print(f"Created new router for module: {module_name}")
         return self.routers[module_name]
+    
+    def get_websocket_routes(self, module_name: str = "") -> list:
+        if module_name not in self.websocket_routes:
+            self.websocket_routes[module_name] = []
+        return self.websocket_routes[module_name]
 
     # def get(self, path: str = None, **kwargs: Any) -> Callable: |||FOR REFERENCE
     # return self._create_route_decorator("get", path, **kwargs)
@@ -67,7 +74,7 @@ class RouteDecorator:
 
                 # Compute the prefix using the copied _compute_prefix method
                 prefix = self._compute_prefix(self.routes_dir, root, file)
-                print(f"prefix: {prefix}, path: {path}, file: {file}")
+                #print(f"prefix: {prefix}, path: {path}, file: {file}")
 
                 # Combine the prefix with the provided or inferred path
                 if not path:
@@ -81,44 +88,16 @@ class RouteDecorator:
                 if file == "index" and not path:
                     full_path = "/"
                 
-                print(f"full_path: {full_path}")
+                #print(f"full_path: {full_path}")
 
                 # Generate a unique operation ID for the websocket
                 operation_id = self._generate_operation_id(func, 'websocket', full_path, module_name)
                 kwargs["name"] = operation_id  # 'name' is used for websockets
 
-                # Register the route only if it does not already exist
-                router = self.get_router(module_name)
-                if not any(r.path == full_path for r in router.routes):
-                    logger.info(f"Registering websocket route: {full_path} in module {module_name}")
-
-                    # If authentication is required, wrap the function
-                    if auth_required:
-                        @wraps(func)
-                        async def wrapper(websocket: WebSocket, **path_params):
-                            token = websocket.cookies.get('access_token')
-                            if token is None:
-                                await websocket.close(code=1008)  # Policy violation
-                                return
-                            try:
-                                jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-                            except jwt.PyJWTError:
-                                await websocket.close(code=1008)
-                                return
-                            return await func(websocket=websocket, **path_params)
-
-                        router.add_api_websocket_route(full_path, wrapper, **kwargs)
-                        return wrapper
-                    else:
-                        @wraps(func)
-                        async def wrapper(websocket: WebSocket, **path_params):
-                            return await func(websocket=websocket, **path_params)
-
-                        router.add_api_websocket_route(full_path, wrapper, **kwargs)
-                        return wrapper
-                else:
-                    logger.warning(f"Skipping duplicate websocket route registration for route: {full_path}")
-
+                # Save the route for later registration
+                websocket_routes = self.get_websocket_routes(module_name)
+                websocket_routes.append((full_path, func, auth_required, kwargs))
+                logger.info(f"Prepared WebSocket route: {full_path} for module {module_name}")
                 return func
 
             return decorator
