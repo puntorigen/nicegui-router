@@ -11,15 +11,15 @@ def use_state(default):
         # print('Frame', frame, locals_)
         if '_context_state_' in locals_:
             state = locals_['_context_state_']
-            print('State!', state)
+            #print('State!', state)
             refreshable_func = state.get(refreshable_func_key)
             break
-    print('Resolved', state, refreshable_func)
+    #print('Resolved', state, refreshable_func)
     key = state['__idx']
     ret = state.setdefault(key, default)
     state['__idx'] += 1
     def set_value(value):
-        print('Call Set Value', value, state, refreshable_func)
+        #print('Call Set Value', value, state, refreshable_func)
         state.update({key: value})
         refreshable_func.refresh()
     return ret, set_value
