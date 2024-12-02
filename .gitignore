@@ -1,0 +1,13 @@
+.env
+venv/
+devenv/
+__pycache__/
+
+.DS_Store
+.vscode
+
+*.ipynb
+logfile.txt
+chromadb/
+__pycache__/
+*.egg-info/
