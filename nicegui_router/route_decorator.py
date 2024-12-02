@@ -190,15 +190,13 @@ class RouteDecorator:
             async def wrapped_func(*args, **kwargsI):
                 if theme:
                     with theme().build():
-                        component_func = component(func)
-                        result = component_func(*args, **kwargsI)
+                        result = func(*args, **kwargsI)
                         if asyncio.iscoroutine(result):
                             return await result
                         else:
                             return result
                 else:
-                    component_func = component(func)
-                    result = component_func(*args, **kwargsI)
+                    result = func(*args, **kwargsI)
                     if asyncio.iscoroutine(result):
                         return await result
                     else:
