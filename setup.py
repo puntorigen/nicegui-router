@@ -17,6 +17,8 @@ setup(
     packages=find_packages(),
     install_requires=[
         'nicegui>=2.3.0',
+        'PyJWT==2.9.0',
+        'unicorn==2.1.1'
     ],
     classifiers=[
         'Programming Language :: Python :: 3',

@@ -119,6 +119,8 @@ class DynamicRouterLoader:
         openapi_schema = get_openapi(routes=self.app.routes, **fastapi_kwargs)
 
         # Add security scheme
+        if "components" not in openapi_schema:
+            openapi_schema["components"] = {}
         openapi_schema["components"]["securitySchemes"] = {
             "OAuth2PasswordBearer": {
                 "type": "oauth2",
@@ -284,3 +286,9 @@ class DynamicRouterLoader:
         """Start the FastAPI server with NiceGUI."""
         # Assign the NiceGUI server to FastAPI with the given configuration
         ui.run_with(app=self.app, reconnect_timeout=5.0, binding_refresh_interval=0.5, **self.nicegui_config)
+
+    def listen(self, host:str="127.0.0.1", port:int=8000):
+        import uvicorn, sys
+        calling_script = Path(sys.argv[0]).stem
+        module_reference = f"{calling_script}:app"
+        uvicorn.run(module_reference, host=host, port=port, reload=True)
