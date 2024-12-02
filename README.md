@@ -31,16 +31,20 @@ my_nicegui_app/
 #### `main.py`
 ```python
 from nicegui_router import Server
+from pathlib import Path
 
 # Initialize the router with the directory containing your route files
-server = Server(title='Example Server', routes_dir='routes')
+server = Server(
+    title='Example Server', 
+    routes_dir=Path(__file__).parent / "routes"
+)
 
 # Get the Fastapi app instance (for advanced use cases)
 app = server.app
 
 # Start the server if the script is run directly
 if __name__ == '__main__':
-    server.listen(host='0.0.0.0', port=8080)
+    server.listen(port=8080)
 ```
 
 #### `routes/index.py`
@@ -54,9 +58,16 @@ def home():
 
 #### `routes/about.py`
 ```python
-from nicegui_router import page, ui, ThemeBuild
+from nicegui_router import page, ui, theme
 
-@page(theme=ThemeBuild(theme={'primary': '#FF5733', 'secondary': '#33FF57', 'accent': '#3357FF'}))
+customTheme = theme(
+    {
+        'primary': '#FF5733', # orange
+        'secondary': '#33FF57', # green
+        'accent': '#3357FF'
+    }, font="Lato")
+
+@page(theme=customTheme)
 def about():
     ui.markdown("About Us Page themed with custom colors.")
 ```
