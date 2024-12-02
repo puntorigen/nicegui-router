@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import TypedDict
+from typing import TypedDict, Dict
 from nicegui import ui
 
 class ColorScheme(TypedDict):
@@ -69,3 +69,41 @@ class ThemeBuild:
             ui.add_body_html(body_close)
         # add AOS script
         ui.run_javascript('AOS.init();')
+
+def theme(
+        theme: ColorScheme, 
+        font:str = None, 
+        css: list[str] = [], 
+        head: list[str] = [],
+        body: list[str] = [],
+        body_close: list[str] = [],
+        name: str = "CustomTheme"
+    ):
+    """Dynamically generates a theme class.
+
+    Args:
+        theme (dict): The theme dictionary to be used.
+        font (str): The font to be used.
+        css (list[str]): CSS rules to apply.
+        head (list[str]): Additional HTML elements for the head section.
+        body (list[str]): Additional HTML elements for the body section.
+        body_close (list[str]): Additional HTML elements before the body closing tag.
+        name (str): The name for the generated class.
+
+    Returns:
+        type: A dynamically generated class extending ThemeBuild.
+    """
+    class GeneratedTheme(ThemeBuild):
+        def __init__(self) -> None:
+            super().__init__(
+                theme=theme,
+                font=font,
+                css=css,
+                head=head,
+                body=body,
+                body_close=body_close
+            )
+    
+    # Rename the class to the desired name
+    #GeneratedTheme.__name__ = "CustomTheme"
+    return GeneratedTheme
