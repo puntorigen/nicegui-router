@@ -7,7 +7,7 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name='nicegui-router',
-    version='0.0.3',
+    version='0.0.4',
     description='File-based routing and theming for NiceGUI, bringing structured navigation and consistent page themes',
     long_description=README,
     long_description_content_type='text/markdown',

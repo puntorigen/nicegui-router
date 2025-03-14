@@ -6,7 +6,7 @@ from fastapi.routing import APIRoute, BaseRoute, APIWebSocketRoute
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from pathlib import Path
-from nicegui import ui
+from nicegui import ui, app as nicegui_app
 from nicegui.language import Language
 from .route_decorator import _route_decorator, SECRET_KEY, ALGORITHM
 from .logging import setup_logger
@@ -64,27 +64,35 @@ class DynamicRouterLoader:
         routes_dir: str,
         ui: NiceGUIConfig = None,
         auth_path: str = "/login",
+        static_path: Optional[str] = None,
         on_startup: Optional[callable] = None,
         on_shutdown: Optional[callable] = None,
         **fastapi_kwargs,
     ):
         # Create the lifespan events handler
-        @asynccontextmanager
-        async def lifespan_events(app: FastAPI):
-            try:
-                if on_startup:
-                    await on_startup()
-                yield
-            finally:
-                if on_shutdown:
-                    await on_shutdown()
+        #@asynccontextmanager
+        #async def lifespan_events(app: FastAPI):
+        #    try:
+        #        if on_startup:
+        #            await on_startup()
+        #        yield
+        #    finally:
+        #        if on_shutdown:
+        #            await on_shutdown()
         # Pass the kwargs to the FastAPI instance
         self.routes_dir = routes_dir
         self.app = FastAPI(
             generate_unique_id_function=self.custom_generate_unique_id, 
-            lifespan=lifespan_events,
+            #lifespan=lifespan_events,
             **fastapi_kwargs
         )
+        # set on_startup and on_shutdown on nicegui app
+        if on_startup:
+            nicegui_app.on_startup(on_startup)
+        if on_shutdown:
+            nicegui_app.on_shutdown(on_shutdown)
+        if static_path:
+            nicegui_app.add_static_files("/static", static_path)
         # Set the routes directory and authentication path
         _route_decorator.set_routes_dir(self.routes_dir)
         _route_decorator.set_auth_path(auth_path)
